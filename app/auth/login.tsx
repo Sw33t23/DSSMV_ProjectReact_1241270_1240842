@@ -1,32 +1,70 @@
-import { View, Text, TextInput, Button } from "react-native";
 import { useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../firebase/firebase";
-import { Link } from "expo-router";
+import { auth } from "../../firebase/firebase"; 
+import { useRouter } from "expo-router";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const router = useRouter();
 
-  async function handleLogin() {
+  const handleLogin = async () => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (e) {
-      console.log("Login error:", e);
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+      router.replace("../(tabs)/");
+    } catch (error: any) {
+      Alert.alert("Login failed", error.message);
     }
-  }
+  };
 
   return (
-    <View style={{ padding: 16 }}>
-      <Text>Email</Text>
-      <TextInput onChangeText={setEmail} style={{ borderWidth: 1 }} />
+    <View style={styles.container}>
+      <Text style={styles.title}>Log In</Text>
 
-      <Text>Password</Text>
-      <TextInput secureTextEntry onChangeText={setPassword} style={{ borderWidth: 1 }} />
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        autoCapitalize="none"
+        value={email}
+        onChangeText={setEmail}
+      />
 
-      <Button title="Login" onPress={handleLogin} />
+      <TextInput
+        style={styles.input}
+        placeholder="Password"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
 
-      <Link href="/auth/signup">Create account</Link>
+      <TouchableOpacity style={styles.button} onPress={handleLogin}>
+        <Text style={styles.buttonText}>Log In</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => router.push("/auth/signup")}>
+        <Text style={styles.link}>Create an account</Text>
+      </TouchableOpacity>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: "center", padding: 20 },
+  title: { fontSize: 28, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  button: {
+    backgroundColor: "#007AFF",
+    padding: 14,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  buttonText: { color: "white", textAlign: "center", fontWeight: "bold" },
+  link: { marginTop: 15, textAlign: "center", color: "#007AFF" },
+});
