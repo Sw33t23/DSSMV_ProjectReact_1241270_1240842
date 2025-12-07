@@ -1,6 +1,11 @@
-// app/_layout.tsx
-import { Slot } from "expo-router";
+import { Slot, Stack } from "expo-router";
 
 export default function RootLayout() {
-  return <Slot />;
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="auth/login" />
+      <Stack.Screen name="auth/signup" />
+      <Stack.Screen name="(tabs)" />
+    </Stack>
+  );
 }
