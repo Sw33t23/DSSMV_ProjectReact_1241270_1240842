@@ -5,19 +5,20 @@ import {
   TextInput, 
   Button, 
   StyleSheet, 
-  Alert, // Added Alert for user feedback
+  Alert, 
   KeyboardAvoidingView, 
   Platform 
 } from "react-native";
-import { auth } from "../../firebase/firebase"; // Adjust the path as necessary
+// Import Link from expo-router to navigate to the signup screen
+import { router, Link } from "expo-router"; 
+import { auth } from "../../firebase/firebase"; 
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { router } from "expo-router";
 
 // Exported as default, which is REQUIRED by Expo Router
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false); // To prevent double-taps
+  const [loading, setLoading] = useState(false); 
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -30,8 +31,7 @@ export default function Login() {
       // 1. Attempt to sign in
       await signInWithEmailAndPassword(auth, email, password);
       
-      // 2. If successful, replace the current screen with the main app tabs
-      // This prevents the user from going 'back' to the login screen
+      // 2. If successful, navigate to the main app tabs
       router.replace("/(tabs)");
       
     } catch (error) {
@@ -47,7 +47,7 @@ export default function Login() {
       
       Alert.alert("Login Failed", errorMessage);
     } finally {
-      // 4. Stop loading indicator regardless of success or failure
+      // 4. Stop loading indicator
       setLoading(false);
     }
   };
@@ -77,11 +77,18 @@ export default function Login() {
           onChangeText={setPassword} 
         />
         
+        {/* Login Button */}
         <Button 
           title={loading ? "Logging In..." : "Login"} 
           onPress={handleLogin} 
           disabled={loading}
         />
+
+        {/* Link to Signup Screen */}
+        <Link href="/auth/signup" asChild>
+          <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
+        </Link>
+        
       </View>
     </KeyboardAvoidingView>
   );
@@ -118,4 +125,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     marginBottom: 15,
   },
+  // New style for the link
+  linkText: {
+    marginTop: 20,
+    textAlign: 'center',
+    color: '#007AFF',
+    fontWeight: '600',
+  }
 });
