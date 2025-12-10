@@ -1,31 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, TouchableOpacity, Button } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
+import { useAppStore } from '../../../store/useAppStore'; 
 
-// Replace with your actual TMDB API Key
 const TMDB_API_KEY = "918ad26dfa6acc69159fa52570caaf8c";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 
 export default function MovieDetailsScreen() {
-  // Extract the movie ID from the URL parameter
+  // Get ID from URL
   const { id } = useLocalSearchParams(); 
   const [movie, setMovie] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  // State for user actions (to be integrated with Firebase later)
-  const [isWatched, setIsWatched] = useState(false);
-  const [userRating, setUserRating] = useState(0);
+  // ZUSTAND: Access state and actions
+  const { 
+      watchlist, 
+      ratings, 
+      toggleWatchlistItem, 
+      setRating 
+  } = useAppStore();
+
+  const idNum = Number(id);
+  const isWatched = watchlist.includes(idNum);
+  const userRating = ratings[idNum] || 0;
+
 
   useEffect(() => {
-    // Check if ID is a string before fetching
     if (typeof id !== 'string') return;
     
     const fetchDetails = async () => {
       setLoading(true);
       try {
-        // Fetch details (includes synopsis, runtime, director) and credits (for cast)
         const detailsResponse = await fetch(
           `${TMDB_BASE_URL}/movie/${id}?api_key=${TMDB_API_KEY}&append_to_response=credits`
         );
@@ -39,21 +46,24 @@ export default function MovieDetailsScreen() {
     };
 
     fetchDetails();
-  }, [id]);
+  }, [id]); 
 
-  // Helper function to render star rating buttons
+  const handleSetRating = (rating: number) => {
+    setRating(idNum, rating);
+  };
+  
   const renderStarRating = () => {
     return (
       <View style={styles.ratingContainer}>
         {[1, 2, 3, 4, 5].map((star) => (
           <TouchableOpacity 
             key={star} 
-            onPress={() => setUserRating(star)}
+            onPress={() => handleSetRating(star)}
             style={{ paddingHorizontal: 5 }}
           >
             <FontAwesome5 
-              name={star <= userRating ? "star" : "star-border"} 
-              solid={star <= userRating} // FontAwesome5 prop for filled/outline star
+              name={star <= userRating ? "star" : "star"} 
+              solid={star <= userRating} 
               size={30} 
               color={star <= userRating ? "#FFD700" : "#666"} 
             />
@@ -72,8 +82,8 @@ export default function MovieDetailsScreen() {
     );
   }
 
-  // Find the Director
-  const director = movie.credits.crew.find((crew: any) => crew.job === 'Director')?.name || 'N/A';
+  const director = movie.credits?.crew?.find((crew: any) => crew.job === 'Director')?.name || 'N/A';
+  const releaseYear = movie.release_date ? movie.release_date.substring(0, 4) : 'N/A';
   
   return (
     <ScrollView style={styles.container}>
@@ -86,12 +96,16 @@ export default function MovieDetailsScreen() {
             />
             <View style={styles.titleSection}>
                 <Text style={styles.title}>{movie.title}</Text>
+                <Text style={styles.releaseYear}>({releaseYear})</Text>
                 <Text style={styles.tagline}>{movie.tagline}</Text>
             </View>
         </View>
 
         {/* Watchlist Button */}
-        <TouchableOpacity style={styles.watchlistButton} onPress={() => setIsWatched(!isWatched)}>
+        <TouchableOpacity 
+            style={[styles.watchlistButton, isWatched ? styles.watchlistActive : styles.watchlistInactive]} 
+            onPress={() => toggleWatchlistItem(idNum)} 
+        >
             <Text style={styles.watchlistButtonText}>
                 <FontAwesome5 name={isWatched ? "check" : "plus"} size={16} /> 
                 {isWatched ? " Added to Watchlist" : " Add to Watchlist"}
@@ -100,7 +114,7 @@ export default function MovieDetailsScreen() {
 
         {/* Synopsis */}
         <Text style={styles.header}>Synopsis</Text>
-        <Text style={styles.bodyText}>{movie.overview}</Text>
+        <Text style={styles.bodyText}>{movie.overview || 'Synopsis not available.'}</Text>
         
         {/* Director and Duration */}
         <View style={styles.infoRow}>
@@ -119,8 +133,9 @@ export default function MovieDetailsScreen() {
         {/* Cast */}
         <Text style={styles.header}>Cast</Text>
         <View>
-            {movie.credits.cast.slice(0, 5).map((castMember: any) => (
-            <Text key={castMember.id} style={styles.castText}>- {castMember.name}</Text>
+            {movie.credits?.cast?.slice(0, 5).map((castMember: any) => (
+            // Ensure castMember.name is cast to string or handled if null
+            <Text key={castMember.id} style={styles.castText}>- {castMember.name || 'N/A'}</Text>
             ))}
         </View>
         
@@ -160,16 +175,27 @@ const styles = StyleSheet.create({
     color: '#FFF',
     marginBottom: 5,
   },
+  releaseYear: { 
+    fontSize: 18,
+    color: '#ccc',
+    marginBottom: 10,
+  },
   tagline: {
     fontSize: 16,
     color: '#aaa',
   },
+  // Watchlist Button Styles
   watchlistButton: {
-    backgroundColor: '#FF0000',
     padding: 15,
     borderRadius: 8,
     marginHorizontal: 20,
     marginBottom: 20,
+  },
+  watchlistInactive: {
+    backgroundColor: '#FF0000', 
+  },
+  watchlistActive: {
+    backgroundColor: '#00B894', 
   },
   watchlistButtonText: {
     color: '#FFF',

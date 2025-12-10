@@ -91,7 +91,7 @@ export default function DiscoverScreen() {
     <View style={styles.container}>
       {/* App Name / Navbar Section */}
       <View style={styles.navbar}>
-        <Text style={styles.appName}>🎬 CineWatch</Text>
+        <Text style={styles.appName}>🎬 MovieWatchlist</Text>
         <FontAwesome5 name="user-circle" size={24} color="#FFF" style={styles.profileIcon} />
       </View>
 
