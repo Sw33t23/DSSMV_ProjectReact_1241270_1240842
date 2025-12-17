@@ -13,12 +13,11 @@ import {
 import { FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
-// TMDB API Key (Keeping your key as provided)
 const TMDB_API_KEY = "918ad26dfa6acc69159fa52570caaf8c"; 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w200';
 
-// Define a basic type for the TMDB search result item to help TypeScript
+// Define a basic type 4 tmdb
 type TMDBItem = {
     id: number;
     title?: string;
@@ -53,7 +52,6 @@ export default function DiscoverScreen() {
       ));
     } catch (error) {
       console.error("TMDB Search Error:", error);
-      // Optional: Show an alert here if needed
     } finally {
       setLoading(false);
     }
@@ -73,8 +71,6 @@ export default function DiscoverScreen() {
     <TouchableOpacity 
       style={styles.movieItem} 
       onPress={() => {
-        // ✅ FIX: Explicitly include the tabs group name in the path.
-        // It must match the structure known by TypeScript: /(tabs)/movie/[id]
         router.push(`/(tabs)/movie/${item.id.toString()}`); 
       }}
     >
