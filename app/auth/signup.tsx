@@ -5,15 +5,15 @@ import {
   TextInput, 
   Button, 
   StyleSheet, 
-  Alert, // Added Alert for feedback
+  Alert, 
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  TouchableOpacity // 👈 ADDED
 } from "react-native";
 import { auth } from "../../firebase/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { router } from "expo-router";
+import { router, Link } from "expo-router"; // 👈 ADDED Link
 
-// This component is exported as default, which is REQUIRED by Expo Router
 export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,17 +27,12 @@ export default function Signup() {
 
     setLoading(true);
     try {
-      // 1. Attempt to create the user
       await createUserWithEmailAndPassword(auth, email, password);
-      
-      // 2. If successful, replace the current screen with the main app tabs
       router.replace("/(tabs)");
-      
-    } catch (error) {
-      // 3. Handle any authentication errors (e.g., password too weak, email already in use)
+    } catch (error: any) {
       console.error("Signup Error:", error);
       
-      let errorMessage = "An unexpected error occurred. Please try again.";
+      let errorMessage = "An unexpected error occurred.";
       if (error.code === 'auth/weak-password') {
         errorMessage = "The password must be at least 6 characters long.";
       } else if (error.code === 'auth/email-already-in-use') {
@@ -48,7 +43,6 @@ export default function Signup() {
       
       Alert.alert("Signup Failed", errorMessage);
     } finally {
-      // 4. Stop loading indicator
       setLoading(false);
     }
   };
@@ -64,6 +58,7 @@ export default function Signup() {
         <TextInput 
           style={styles.input}
           placeholder="Email" 
+          placeholderTextColor="#888" // 👈 FIXED: Hint text color
           value={email} 
           onChangeText={setEmail} 
           keyboardType="email-address"
@@ -73,6 +68,7 @@ export default function Signup() {
         <TextInput 
           style={styles.input}
           placeholder="Password" 
+          placeholderTextColor="#888" // 👈 FIXED: Hint text color
           secureTextEntry 
           value={password} 
           onChangeText={setPassword} 
@@ -82,7 +78,15 @@ export default function Signup() {
           title={loading ? "Creating..." : "Create Account"} 
           onPress={handleSignup} 
           disabled={loading}
+          color="#007AFF"
         />
+
+        {/* Link back to Login */}
+        <Link href="/auth/login" asChild>
+          <TouchableOpacity>
+            <Text style={styles.linkText}>Already have an account? Login</Text>
+          </TouchableOpacity>
+        </Link>
       </View>
     </KeyboardAvoidingView>
   );
@@ -110,6 +114,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
+    color: '#333',
   },
   input: {
     height: 50,
@@ -118,5 +123,13 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     paddingHorizontal: 15,
     marginBottom: 15,
+    color: '#333', // 👈 FIXED: Typed text color
+    backgroundColor: '#fff',
   },
+  linkText: {
+    marginTop: 20,
+    textAlign: 'center',
+    color: '#007AFF',
+    fontWeight: '600',
+  }
 });
