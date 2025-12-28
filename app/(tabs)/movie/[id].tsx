@@ -1,30 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, TouchableOpacity, Dimensions } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
+import YoutubePlayer from "react-native-youtube-iframe"; 
 import { useAppStore } from '../../../store/useAppStore'; 
 
 const TMDB_API_KEY = "918ad26dfa6acc69159fa52570caaf8c";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 
+const { width } = Dimensions.get('window');
+
 export default function MovieDetailsScreen() {
   const { id } = useLocalSearchParams(); 
   const [movie, setMovie] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [trailerId, setTrailerId] = useState<string | null>(null); // Store YT ID
   
   const { 
       watchlist, 
-      viewed, // New state
+      viewed, 
       ratings, 
       toggleWatchlistItem, 
-      toggleViewedStatus, // New action
+      toggleViewedStatus, 
       setRating 
   } = useAppStore();
 
   const idNum = Number(id);
   const isWatched = watchlist.includes(idNum);
-  const isViewed = viewed.includes(idNum); // Check viewed status
+  const isViewed = viewed.includes(idNum); 
   const userRating = ratings[idNum] || 0;
 
   useEffect(() => {
@@ -32,30 +36,27 @@ export default function MovieDetailsScreen() {
     const fetchDetails = async () => {
       setLoading(true);
       try {
+        // 👈 Added "videos" to append_to_response
         const detailsResponse = await fetch(
-          `${TMDB_BASE_URL}/movie/${id}?api_key=${TMDB_API_KEY}&append_to_response=credits`
+          `${TMDB_BASE_URL}/movie/${id}?api_key=${TMDB_API_KEY}&append_to_response=credits,videos`
         );
         const data = await detailsResponse.json();
         setMovie(data);
-      } catch (error) { console.error("Error fetching details:", error); } 
-      finally { setLoading(false); }
+
+        // 👈 Find the YouTube Trailer Key
+        const trailer = data.videos?.results?.find(
+          (vid: any) => vid.site === 'YouTube' && vid.type === 'Trailer'
+        );
+        if (trailer) setTrailerId(trailer.key);
+
+      } catch (error) { 
+        console.error("Error fetching details:", error); 
+      } finally { 
+        setLoading(false); 
+      }
     };
     fetchDetails();
   }, [id]); 
-
-  const handleSetRating = (rating: number) => { setRating(idNum, rating); };
-  
-  const renderStarRating = () => {
-    return (
-      <View style={styles.ratingContainer}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <TouchableOpacity key={star} onPress={() => handleSetRating(star)} style={{ paddingHorizontal: 5 }}>
-            <FontAwesome5 name="star" solid={star <= userRating} size={30} color={star <= userRating ? "#FFD700" : "#666"} />
-          </TouchableOpacity>
-        ))}
-      </View>
-    );
-  };
 
   if (loading || !movie) return (
     <View style={styles.centerContainer}><ActivityIndicator size="large" color="#FF0000" /></View>
@@ -71,7 +72,6 @@ export default function MovieDetailsScreen() {
             <View style={styles.titleSection}>
                 <View style={styles.titleRow}>
                     <Text style={styles.title}>{movie.title}</Text>
-                    {/* 👁️ VIEWED TOGGLE BUTTON */}
                     <TouchableOpacity onPress={() => toggleViewedStatus(idNum)}>
                         <FontAwesome5 name="eye" size={24} color={isViewed ? "#00B894" : "#666"} solid={isViewed} />
                     </TouchableOpacity>
@@ -80,6 +80,22 @@ export default function MovieDetailsScreen() {
                 <Text style={styles.tagline}>{movie.tagline}</Text>
             </View>
         </View>
+
+        {/* 📺 NEW: Embedded YouTube Trailer Section */}
+        {trailerId ? (
+          <View style={styles.videoSection}>
+            <Text style={styles.header}>Trailer</Text>
+            <YoutubePlayer
+              height={width * 0.56} // 16:9 aspect ratio
+              play={false}
+              videoId={trailerId}
+            />
+          </View>
+        ) : (
+          <View style={styles.noVideoContainer}>
+            <Text style={styles.noVideoText}>No trailer available</Text>
+          </View>
+        )}
 
         <TouchableOpacity 
             style={[styles.watchlistButton, isWatched ? styles.watchlistActive : styles.watchlistInactive]} 
@@ -104,7 +120,13 @@ export default function MovieDetailsScreen() {
         </View>
         
         <Text style={styles.header}>Rate This</Text>
-        {renderStarRating()}
+        <View style={styles.ratingContainer}>
+            {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity key={star} onPress={() => setRating(idNum, star)} style={{ paddingHorizontal: 5 }}>
+                    <FontAwesome5 name="star" solid={star <= userRating} size={30} color={star <= userRating ? "#FFD700" : "#666"} />
+                </TouchableOpacity>
+            ))}
+        </View>
         
         <Text style={styles.header}>Cast</Text>
         <View>
@@ -126,7 +148,13 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   title: { fontSize: 24, fontWeight: 'bold', color: '#FFF', flex: 1, marginRight: 10 },
   releaseYear: { fontSize: 18, color: '#ccc', marginBottom: 10 },
-  tagline: { fontSize: 16, color: '#aaa' },
+  tagline: { fontSize: 16, color: '#aaa', fontStyle: 'italic' },
+  
+  // Video Styles
+  videoSection: { marginVertical: 10 },
+  noVideoContainer: { padding: 20, alignItems: 'center' },
+  noVideoText: { color: '#666', fontStyle: 'italic' },
+
   watchlistButton: { padding: 15, borderRadius: 8, marginHorizontal: 20, marginBottom: 20 },
   watchlistInactive: { backgroundColor: '#FF0000' },
   watchlistActive: { backgroundColor: '#00B894' },

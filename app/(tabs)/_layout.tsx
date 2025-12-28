@@ -5,23 +5,27 @@ import { FontAwesome5 } from '@expo/vector-icons';
 
 export default function TabLayout() {
   return (
-    <Tabs screenOptions={{ 
-      headerShown: false, // You'll handle the header (navbar) inside index.tsx
-      tabBarActiveTintColor: '#FF0000', // Example color
-    }}>
+    <Tabs screenOptions={{ tabBarActiveTintColor: '#FF0000', headerShown: false }}>
       <Tabs.Screen
-        name="index" // This links to app/(tabs)/index.tsx (Your main page)
+        name="index"
         options={{
           title: 'Discover',
-          tabBarIcon: ({ color }) => <FontAwesome5 name="home" color={color} size={24} />,
+          tabBarIcon: ({ color }) => <FontAwesome5 name="search" size={20} color={color} />,
         }}
       />
-      
       <Tabs.Screen
-        name="watchlist" // This will be your Watchlist screen
+        name="watchlist"
         options={{
           title: 'Watchlist',
-          tabBarIcon: ({ color }) => <FontAwesome5 name="list" color={color} size={24} />,
+          tabBarIcon: ({ color }) => <FontAwesome5 name="list" size={20} color={color} />,
+        }}
+      />
+      {/* 👇 ADD THE PROFILE TAB HERE */}
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <FontAwesome5 name="user" size={20} color={color} />,
         }}
       />
     </Tabs>
