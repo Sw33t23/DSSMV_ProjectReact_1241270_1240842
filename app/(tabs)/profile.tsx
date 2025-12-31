@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useAppStore } from '../../store/useAppStore';
 
@@ -7,56 +7,61 @@ export default function ProfileScreen() {
   const { user, watchlist, viewed, ratings, logout } = useAppStore();
 
   const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to log out?", [
+    Alert.alert("Logout", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
-      { 
-        text: "Logout", 
-        style: "destructive", 
-        onPress: async () => {
-          await logout(); 
-        } 
-      }
+      { text: "Logout", style: "destructive", onPress: async () => await logout() }
     ]);
   };
 
+  const getRankData = () => {
+    const count = viewed.length;
+    if (count >= 16) return { name: "Movie Legend", color: "#FFD700", icon: "crown", next: null };
+    if (count >= 6) return { name: "Cinephile", color: "#C0C0C0", icon: "medal", next: 16, nextName: "Movie Legend" };
+    return { name: "Newbie", color: "#CD7F32", icon: "award", next: 6, nextName: "Cinephile" };
+  };
+
+  const rank = getRankData();
   const totalRated = Object.keys(ratings).length;
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View style={styles.avatarCircle}>
-          <FontAwesome5 name="user-alt" size={50} color="#fff" />
+          <FontAwesome5 name="user-alt" size={40} color="#fff" />
+          <View style={[styles.badgeContainer, { backgroundColor: rank.color }]}>
+            <FontAwesome5 name={rank.icon} size={12} color="#000" />
+          </View>
         </View>
-        <Text style={styles.emailText}>{user?.email || "User Email"}</Text>
+        <Text style={styles.emailText}>{user?.email}</Text>
+        <View style={[styles.rankTag, { borderColor: rank.color }]}>
+          <Text style={[styles.rankText, { color: rank.color }]}>{rank.name}</Text>
+        </View>
       </View>
 
       <View style={styles.statsContainer}>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>{watchlist.length}</Text>
-          <Text style={styles.statLabel}>Watchlist</Text>
+        {[{l: 'Watchlist', v: watchlist.length}, {l: 'Watched', v: viewed.length}, {l: 'Rated', v: totalRated}].map((s, i) => (
+          <View key={i} style={styles.statBox}>
+            <Text style={styles.statNumber}>{s.v}</Text>
+            <Text style={styles.statLabel}>{s.l}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.progressSection}>
+        <Text style={styles.sectionTitle}>Level Progress</Text>
+        <View style={styles.progressBarBackground}>
+          <View style={[styles.progressBarFill, { width: `${Math.min((viewed.length / (rank.next || 20)) * 100, 100)}%`, backgroundColor: rank.color }]} />
         </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>{viewed.length}</Text>
-          <Text style={styles.statLabel}>Watched</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>{totalRated}</Text>
-          <Text style={styles.statLabel}>Rated</Text>
-        </View>
+        
+        {/* 🎮 Dynamic Goal Text */}
+        <Text style={styles.progressSubtext}>
+          {rank.next 
+            ? `${viewed.length} / ${rank.next} movies to become ${rank.nextName}`
+            : `Max Rank Reached! You are a Legend.`}
+        </Text>
       </View>
 
       <View style={styles.menuContainer}>
-        <Text style={styles.sectionTitle}>Account Settings</Text>
-        
-        <TouchableOpacity 
-          style={styles.menuItem} 
-          onPress={() => Alert.alert("Settings", "Privacy & Security settings coming soon.")}
-        >
-          <FontAwesome5 name="lock" size={18} color="#555" />
-          <Text style={styles.menuText}>Privacy & Security</Text>
-          <FontAwesome5 name="chevron-right" size={14} color="#ccc" />
-        </TouchableOpacity>
-
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <FontAwesome5 name="sign-out-alt" size={18} color="#FF4757" />
           <Text style={styles.logoutText}>Log Out</Text>
@@ -67,38 +72,26 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa' },
-  header: { backgroundColor: '#222', paddingVertical: 40, alignItems: 'center' },
-  avatarCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#444', justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
-  emailText: { color: '#fff', fontSize: 18, fontWeight: '600' },
-  statsContainer: { 
-    flexDirection: 'row', 
-    backgroundColor: '#fff', 
-    margin: 20, 
-    borderRadius: 15, 
-    padding: 20, 
-    elevation: 3, 
-    shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 2 }, 
-    shadowOpacity: 0.1, 
-    shadowRadius: 4 
-  },
+  container: { flex: 1, backgroundColor: '#121212' },
+  header: { backgroundColor: '#1a1a1a', paddingVertical: 50, alignItems: 'center' },
+  avatarCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#333', justifyContent: 'center', alignItems: 'center', marginBottom: 15, position: 'relative' },
+  badgeContainer: { position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#1a1a1a' },
+  emailText: { color: '#fff', fontSize: 18, fontWeight: '600', marginBottom: 10 },
+  rankTag: { paddingHorizontal: 15, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  rankText: { fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase' },
+  statsContainer: { flexDirection: 'row', backgroundColor: '#1f1f1f', margin: 20, borderRadius: 15, padding: 20, borderWidth: 1, borderColor: '#333' },
   statBox: { flex: 1, alignItems: 'center' },
-  statNumber: { fontSize: 22, fontWeight: 'bold', color: '#222' },
-  statLabel: { fontSize: 12, color: '#888', marginTop: 5 },
+  statNumber: { fontSize: 24, fontWeight: 'bold', color: '#FFF' },
+  statLabel: { fontSize: 12, color: '#888', marginTop: 4 },
+  progressSection: { paddingHorizontal: 25, marginBottom: 20 },
+  sectionTitle: { fontSize: 13, fontWeight: 'bold', color: '#888', marginBottom: 10 },
+  progressBarBackground: { height: 8, backgroundColor: '#333', borderRadius: 4, marginTop: 10 },
+  progressBarFill: { height: 8, borderRadius: 4 },
+  
+  // 🟢 New style for the goal text
+  progressSubtext: { fontSize: 12, color: '#aaa', marginTop: 8, textAlign: 'right', fontStyle: 'italic' },
+  
   menuContainer: { paddingHorizontal: 20 },
-  sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#888', marginBottom: 10, textTransform: 'uppercase' },
-  menuItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 15, borderRadius: 10, marginBottom: 10 },
-  menuText: { flex: 1, marginLeft: 15, fontSize: 16, color: '#333' },
-  logoutButton: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: '#fff', 
-    padding: 15, 
-    borderRadius: 10, 
-    marginTop: 10, 
-    borderWidth: 1, 
-    borderColor: '#ffebeb' 
-  },
-  logoutText: { flex: 1, marginLeft: 15, fontSize: 16, color: '#FF4757', fontWeight: 'bold' },
+  logoutButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1f1f1f', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#333' },
+  logoutText: { marginLeft: 15, fontSize: 16, color: '#FF4757', fontWeight: 'bold' },
 });

@@ -1,135 +1,119 @@
-import { useState } from "react";
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  Button, 
-  StyleSheet, 
-  Alert, 
-  KeyboardAvoidingView,
-  Platform,
-  TouchableOpacity // 👈 ADDED
-} from "react-native";
-import { auth } from "../../firebase/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { router, Link } from "expo-router"; // 👈 ADDED Link
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, StatusBar } from 'react-native';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth, db } from '../../firebase/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { router } from 'expo-router';
+import { FontAwesome5 } from '@expo/vector-icons';
 
-export default function Signup() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+export default function SignupScreen() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleSignup = async () => {
     if (!email || !password) {
-      Alert.alert("Missing Fields", "Please enter both email and password.");
+      Alert.alert("Error", "Please fill in all fields");
       return;
     }
-
-    setLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      router.replace("/(tabs)");
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Initialize the user document in Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        email: user.email,
+        watchlist: [],
+        viewed: [],
+        ratings: {}
+      });
+
+      Alert.alert("Success", "Account created!");
     } catch (error: any) {
-      console.error("Signup Error:", error);
-      
-      let errorMessage = "An unexpected error occurred.";
-      if (error.code === 'auth/weak-password') {
-        errorMessage = "The password must be at least 6 characters long.";
-      } else if (error.code === 'auth/email-already-in-use') {
-        errorMessage = "This email address is already in use.";
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = "The email address is not valid.";
-      }
-      
-      Alert.alert("Signup Failed", errorMessage);
-    } finally {
-      setLoading(false);
+      Alert.alert("Signup Error", error.message);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <View style={styles.formContainer}>
-        <Text style={styles.title}>Create Account</Text>
-        
-        <TextInput 
-          style={styles.input}
-          placeholder="Email" 
-          placeholderTextColor="#888" // 👈 FIXED: Hint text color
-          value={email} 
-          onChangeText={setEmail} 
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        
-        <TextInput 
-          style={styles.input}
-          placeholder="Password" 
-          placeholderTextColor="#888" // 👈 FIXED: Hint text color
-          secureTextEntry 
-          value={password} 
-          onChangeText={setPassword} 
-        />
-        
-        <Button 
-          title={loading ? "Creating..." : "Create Account"} 
-          onPress={handleSignup} 
-          disabled={loading}
-          color="#007AFF"
-        />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <FontAwesome5 name="arrow-left" size={20} color="#FFF" />
+      </TouchableOpacity>
 
-        {/* Link back to Login */}
-        <Link href="/auth/login" asChild>
-          <TouchableOpacity>
-            <Text style={styles.linkText}>Already have an account? Login</Text>
-          </TouchableOpacity>
-        </Link>
+      <View style={styles.headerArea}>
+        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.subtitle}>Join the community of movie lovers</Text>
       </View>
-    </KeyboardAvoidingView>
+
+      <View style={styles.inputContainer}>
+        <View style={styles.inputWrapper}>
+          <FontAwesome5 name="envelope" size={16} color="#777" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor="#777"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+          />
+        </View>
+
+        <View style={styles.inputWrapper}>
+          <FontAwesome5 name="lock" size={16} color="#777" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor="#777"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+        </View>
+
+        <TouchableOpacity style={styles.buttonPrimary} onPress={handleSignup}>
+          <Text style={styles.buttonText}>Sign Up</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => router.push('/auth/login')}>
+          <Text style={styles.linkText}>
+            Already have an account? <Text style={styles.linkHighlight}>Log In</Text>
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    justifyContent: "center", 
-    backgroundColor: '#f5f5f5',
-  },
-  formContainer: {
-    padding: 30,
-    backgroundColor: '#ffffff',
-    marginHorizontal: 20,
+  container: { flex: 1, backgroundColor: '#121212', padding: 30, justifyContent: 'center' },
+  backButton: { position: 'absolute', top: 60, left: 25 },
+  headerArea: { marginBottom: 40 },
+  title: { fontSize: 32, fontWeight: 'bold', color: '#FFF' },
+  subtitle: { fontSize: 16, color: '#888', marginTop: 10 },
+  inputContainer: { width: '100%' },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1f1f1f',
     borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#333',
-  },
-  input: {
-    height: 50,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 15,
     marginBottom: 15,
-    color: '#333', // 👈 FIXED: Typed text color
-    backgroundColor: '#fff',
+    paddingHorizontal: 15,
+    borderWidth: 1,
+    borderColor: '#333'
   },
-  linkText: {
+  icon: { marginRight: 10 },
+  input: { flex: 1, height: 50, color: '#FFF', fontSize: 16 },
+  buttonPrimary: {
+    backgroundColor: '#E50914',
+    height: 55,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginTop: 20,
-    textAlign: 'center',
-    color: '#007AFF',
-    fontWeight: '600',
-  }
+    marginBottom: 20
+  },
+  buttonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
+  linkText: { color: '#888', textAlign: 'center', fontSize: 14 },
+  linkHighlight: { color: '#E50914', fontWeight: 'bold' }
 });

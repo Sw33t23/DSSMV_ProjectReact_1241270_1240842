@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, TouchableOpacity, Dimensions } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  ActivityIndicator, 
+  Image, 
+  TouchableOpacity, 
+  Dimensions, 
+  FlatList 
+} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
 import YoutubePlayer from "react-native-youtube-iframe"; 
 import { useAppStore } from '../../../store/useAppStore'; 
@@ -13,9 +23,11 @@ const { width } = Dimensions.get('window');
 
 export default function MovieDetailsScreen() {
   const { id } = useLocalSearchParams(); 
+  const router = useRouter(); // Added for navigation to recommendations
   const [movie, setMovie] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [trailerId, setTrailerId] = useState<string | null>(null); // Store YT ID
+  const [trailerId, setTrailerId] = useState<string | null>(null);
+  const [recommendations, setRecommendations] = useState<any[]>([]); 
   
   const { 
       watchlist, 
@@ -36,18 +48,24 @@ export default function MovieDetailsScreen() {
     const fetchDetails = async () => {
       setLoading(true);
       try {
-        // 👈 Added "videos" to append_to_response
+        // 1. Fetch Movie, Cast, and Trailers
         const detailsResponse = await fetch(
           `${TMDB_BASE_URL}/movie/${id}?api_key=${TMDB_API_KEY}&append_to_response=credits,videos`
         );
         const data = await detailsResponse.json();
         setMovie(data);
 
-        // 👈 Find the YouTube Trailer Key
         const trailer = data.videos?.results?.find(
           (vid: any) => vid.site === 'YouTube' && vid.type === 'Trailer'
         );
         if (trailer) setTrailerId(trailer.key);
+
+        // 2. Fetch Recommendations
+        const recsResponse = await fetch(
+          `${TMDB_BASE_URL}/movie/${id}/recommendations?api_key=${TMDB_API_KEY}`
+        );
+        const recsData = await recsResponse.json();
+        setRecommendations(recsData.results.slice(0, 10));
 
       } catch (error) { 
         console.error("Error fetching details:", error); 
@@ -66,7 +84,8 @@ export default function MovieDetailsScreen() {
   const releaseYear = movie.release_date ? movie.release_date.substring(0, 4) : 'N/A';
   
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Poster & Header Section */}
         <View style={styles.posterSection}>
             <Image source={{ uri: `${IMAGE_BASE_URL}${movie.poster_path}` }} style={styles.poster} resizeMode="cover" />
             <View style={styles.titleSection}>
@@ -77,16 +96,17 @@ export default function MovieDetailsScreen() {
                     </TouchableOpacity>
                 </View>
                 <Text style={styles.releaseYear}>({releaseYear})</Text>
-                <Text style={styles.tagline}>{movie.tagline}</Text>
+                {/* 🌟 Slogan / Tagline */}
+                {movie.tagline ? <Text style={styles.tagline}>"{movie.tagline}"</Text> : null}
             </View>
         </View>
 
-        {/* 📺 NEW: Embedded YouTube Trailer Section */}
+        {/* 📺 Embedded YouTube Trailer Section */}
         {trailerId ? (
           <View style={styles.videoSection}>
             <Text style={styles.header}>Trailer</Text>
             <YoutubePlayer
-              height={width * 0.56} // 16:9 aspect ratio
+              height={width * 0.56}
               play={false}
               videoId={trailerId}
             />
@@ -119,6 +139,7 @@ export default function MovieDetailsScreen() {
             <Text style={styles.infoValue}>{movie.runtime} minutes</Text>
         </View>
         
+        {/* ⭐ Star Rating */}
         <Text style={styles.header}>Rate This</Text>
         <View style={styles.ratingContainer}>
             {[1, 2, 3, 4, 5].map((star) => (
@@ -128,12 +149,39 @@ export default function MovieDetailsScreen() {
             ))}
         </View>
         
+        {/* 🎭 Cast Section */}
         <Text style={styles.header}>Cast</Text>
-        <View>
+        <View style={styles.castContainer}>
             {movie.credits?.cast?.slice(0, 5).map((castMember: any) => (
-                <Text key={castMember.id} style={styles.castText}>- {castMember.name || 'N/A'}</Text>
+                <Text key={castMember.id} style={styles.castText}>• {castMember.name || 'N/A'}</Text>
             ))}
         </View>
+
+        {/* 🍿 NEW: People Also Liked Section */}
+        {recommendations.length > 0 && (
+          <View style={styles.recommendationSection}>
+            <Text style={styles.header}>People Also Liked</Text>
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={recommendations}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={styles.recItem} 
+                  onPress={() => router.push(`/(tabs)/movie/${item.id}`)}
+                >
+                  <Image 
+                    source={{ uri: `${IMAGE_BASE_URL}${item.poster_path}` }} 
+                    style={styles.recPoster} 
+                  />
+                  <Text style={styles.recTitle} numberOfLines={1}>{item.title}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        )}
+
         <View style={{ height: 40 }} />
     </ScrollView>
   );
@@ -147,10 +195,9 @@ const styles = StyleSheet.create({
   titleSection: { flex: 1, paddingLeft: 15, justifyContent: 'center' },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   title: { fontSize: 24, fontWeight: 'bold', color: '#FFF', flex: 1, marginRight: 10 },
-  releaseYear: { fontSize: 18, color: '#ccc', marginBottom: 10 },
-  tagline: { fontSize: 16, color: '#aaa', fontStyle: 'italic' },
+  releaseYear: { fontSize: 18, color: '#ccc', marginBottom: 5 },
+  tagline: { fontSize: 14, color: '#aaa', fontStyle: 'italic', marginTop: 5 },
   
-  // Video Styles
   videoSection: { marginVertical: 10 },
   noVideoContainer: { padding: 20, alignItems: 'center' },
   noVideoText: { color: '#666', fontStyle: 'italic' },
@@ -159,11 +206,21 @@ const styles = StyleSheet.create({
   watchlistInactive: { backgroundColor: '#FF0000' },
   watchlistActive: { backgroundColor: '#00B894' },
   watchlistButtonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold', textAlign: 'center' },
+  
   header: { fontSize: 20, fontWeight: 'bold', color: '#FFF', marginHorizontal: 20, marginTop: 20, marginBottom: 10 },
   bodyText: { fontSize: 16, color: '#E0E0E0', lineHeight: 24, marginHorizontal: 20, marginBottom: 10 },
   infoRow: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 5 },
   infoLabel: { fontSize: 16, fontWeight: 'bold', color: '#E0E0E0', width: 90 },
   infoValue: { fontSize: 16, color: '#E0E0E0', flex: 1 },
+  
   ratingContainer: { flexDirection: 'row', justifyContent: 'center', paddingBottom: 20 },
-  castText: { fontSize: 16, color: '#E0E0E0', marginLeft: 20, marginBottom: 3 },
+  
+  castContainer: { marginBottom: 10 },
+  castText: { fontSize: 16, color: '#E0E0E0', marginLeft: 20, marginBottom: 4 },
+
+  // Recommendation Styles
+  recommendationSection: { marginTop: 10, paddingLeft: 20 },
+  recItem: { marginRight: 15, width: 110 },
+  recPoster: { width: 110, height: 165, borderRadius: 8 },
+  recTitle: { color: '#aaa', fontSize: 12, marginTop: 5, textAlign: 'center' },
 });

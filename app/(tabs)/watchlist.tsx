@@ -1,209 +1,118 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    View, 
-    Text, 
-    StyleSheet, 
-    FlatList, 
-    ActivityIndicator, 
-    Image, 
-    TouchableOpacity, 
-    Platform 
+  View, 
+  Text, 
+  StyleSheet, 
+  FlatList, 
+  TouchableOpacity, 
+  Image, 
+  Platform, 
+  StatusBar,
+  ActivityIndicator 
 } from 'react-native';
-import { FontAwesome5 } from '@expo/vector-icons';
 import { useAppStore } from '../../store/useAppStore';
 import { router } from 'expo-router';
+import { FontAwesome5 } from '@expo/vector-icons';
 
-
-const TMDB_API_KEY = "918ad26dfa6acc69159fa52570caaf8c"; 
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w200';
-
-// Define the type for the displayed movie items
-type WatchlistItem = {
-    id: number;
-    title: string;
-    poster_path: string;
-};
+const TMDB_API_KEY = "918ad26dfa6acc69159fa52570caaf8c";
+const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 
 export default function WatchlistScreen() {
-    // 1. Get the watchlist IDs from the global store
-    const watchlistIds = useAppStore(state => state.watchlist);
-    
-    const [movies, setMovies] = useState<WatchlistItem[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+  const { watchlist } = useAppStore();
+  const [movies, setMovies] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        if (watchlistIds.length === 0) {
-            setMovies([]);
-            setLoading(false);
-            return;
-        }
+  // 🔄 This function turns IDs into full movie objects (with posters)
+  useEffect(() => {
+    const fetchWatchlistDetails = async () => {
+      if (watchlist.length === 0) {
+        setMovies([]);
+        return;
+      }
 
-        const fetchWatchlistDetails = async () => {
-            setLoading(true);
-            setError(null);
-            
-            // Map IDs to fetch promises, including error checking
-            const fetchPromises = watchlistIds.map(id => 
-                fetch(`${TMDB_BASE_URL}/movie/${id}?api_key=${TMDB_API_KEY}`)
-                    .then(res => {
-                         if (!res.ok) {
-                             // Throw an error for bad HTTP status (e.g., 404)
-                             throw new Error(`HTTP error! Status: ${res.status} for movie ID: ${id}`);
-                         }
-                         return res.json();
-                    })
+      setLoading(true);
+      try {
+        // We call the API for each ID in your watchlist at the same time
+        const movieDetails = await Promise.all(
+          watchlist.map(async (id) => {
+            const res = await fetch(
+              `https://api.themoviedb.org/3/movie/${id}?api_key=${TMDB_API_KEY}`
             );
-
-            try {
-                // 2. Use Promise.allSettled to ensure stability even if one fetch fails
-                const results = await Promise.allSettled(fetchPromises);
-                
-                // 3. Process the results, only taking 'fulfilled' promises
-                const validMovies: WatchlistItem[] = [];
-
-                results.forEach(result => {
-                    if (result.status === 'fulfilled') {
-                        const data = result.value;
-                        
-                        // Ensure it's a valid movie object and has a poster
-                        if (data && !data.success && data.poster_path) {
-                            validMovies.push({
-                                id: data.id,
-                                title: data.title || data.name || "Unknown Title",
-                                poster_path: data.poster_path,
-                            });
-                        }
-                    } else {
-                        // Log the failure, but the app remains stable
-                        console.error("Failed to fetch one movie:", result.reason);
-                    }
-                });
-                    
-                setMovies(validMovies);
-            } catch (e) {
-                // This catches errors only if the overall Promise.allSettled failed
-                setError("An unexpected error occurred while processing the watchlist.");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchWatchlistDetails();
-    }, [watchlistIds]); // Re-run whenever the watchlist changes in the store
-
-    const renderItem = ({ item }: { item: WatchlistItem }) => (
-        <TouchableOpacity 
-            style={styles.movieItem} 
-            onPress={() => router.push(`/(tabs)/movie/${item.id.toString()}`)}
-        >
-            <Image
-                source={{ uri: `${IMAGE_BASE_URL}${item.poster_path}` }}
-                style={styles.poster} 
-                resizeMode="cover"
-            />
-            <Text style={styles.movieTitle} numberOfLines={2}>{item.title}</Text>
-        </TouchableOpacity>
-    );
-
-    if (loading) {
-        return (
-            <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color="#FF0000" />
-            </View>
+            return res.json();
+          })
         );
-    }
-    
-    if (error) {
-        return <View style={styles.centerContainer}><Text style={styles.errorText}>{error}</Text></View>;
-    }
+        // Filter out any data that didn't load correctly
+        setMovies(movieDetails.filter(m => m.poster_path));
+      } catch (error) {
+        console.error("Error fetching watchlist posters:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    if (movies.length === 0) {
-        return (
-            <View style={styles.centerContainer}>
-                <Text style={styles.emptyText}>Your watchlist is empty! 🍿</Text>
-                <Text style={styles.emptySubText}>Search for movies and click "Add to Watchlist" to get started.</Text>
-            </View>
-        );
-    }
+    fetchWatchlistDetails();
+  }, [watchlist]); 
 
-    return (
-        <View style={styles.container}>
-            <View style={styles.navbar}>
-                <Text style={styles.appName}>🎬 Your Watchlist</Text>
-            </View>
-            <FlatList
-                data={movies}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={renderItem}
-                numColumns={3}
-                contentContainerStyle={styles.listContainer}
-            />
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      
+      {/* 🛠️ Polished Header (Safe for Camera Notch) */}
+      <View style={styles.navbar}>
+        <Text style={styles.appName}>My Watchlist</Text>
+      </View>
+
+      {loading ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#E50914" />
         </View>
-    );
+      ) : movies.length === 0 ? (
+        <View style={styles.centerContainer}>
+          <FontAwesome5 name="film" size={50} color="#333" style={{ marginBottom: 15 }} />
+          <Text style={styles.emptyText}>Your watchlist is empty.</Text>
+          <Text style={styles.subEmptyText}>Add movies from the Discover tab!</Text>
+        </View>
+      ) : (
+        <FlatList 
+          data={movies}
+          keyExtractor={(item) => item.id.toString()}
+          numColumns={3}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item }) => (
+            <TouchableOpacity 
+              style={styles.movieItem} 
+              onPress={() => router.push(`/(tabs)/movie/${item.id}`)}
+            >
+              <Image 
+                source={{ uri: `${IMAGE_BASE_URL}${item.poster_path}` }} 
+                style={styles.poster} 
+              />
+              <Text style={styles.movieTitle} numberOfLines={1}>{item.title}</Text>
+            </TouchableOpacity>
+          )}
+        />
+      )}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-        paddingTop: Platform.OS === 'android' ? 35 : 0,
-    },
-    centerContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-    },
-    errorText: {
-        color: 'red',
-        fontSize: 16,
-    },
-    emptyText: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 8,
-    },
-    emptySubText: {
-        fontSize: 14,
-        color: '#666',
-        textAlign: 'center',
-        paddingHorizontal: 40,
-    },
-    // Navbar Styles
-    navbar: {
-        backgroundColor: '#222',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
-        alignItems: 'center',
-    },
-    appName: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#FFF',
-    },
-    // List Item Styles
-    listContainer: {
-        paddingHorizontal: 5,
-        paddingVertical: 10,
-    },
-    movieItem: {
-        width: '33.33%',
-        padding: 5,
-        alignItems: 'center',
-    },
-    poster: {
-        width: '100%',
-        aspectRatio: 2 / 3,
-        borderRadius: 8,
-        marginBottom: 5,
-    },
-    movieTitle: {
-        textAlign: 'center',
-        fontSize: 12,
-        color: '#333',
-        height: 30,
-    },
+  container: { flex: 1, backgroundColor: '#121212' },
+  // Header with extra top padding for Notch/Island
+  navbar: { 
+    backgroundColor: '#121212', 
+    paddingTop: Platform.OS === 'ios' ? 60 : 45, 
+    paddingBottom: 15, 
+    alignItems: 'center', 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#333' 
+  },
+  appName: { fontSize: 22, fontWeight: 'bold', color: '#FFF' },
+  listContent: { padding: 5 },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
+  emptyText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
+  subEmptyText: { color: '#666', fontSize: 14, textAlign: 'center', marginTop: 8 },
+  movieItem: { width: '33.33%', padding: 5, alignItems: 'center' },
+  poster: { width: '100%', aspectRatio: 2/3, borderRadius: 8, backgroundColor: '#1f1f1f' },
+  movieTitle: { color: '#bbb', fontSize: 11, marginTop: 5, textAlign: 'center' }
 });
