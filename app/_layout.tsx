@@ -1,57 +1,59 @@
-import { Slot, Stack, SplashScreen } from 'expo-router';
+import { Stack, SplashScreen, useRouter, useSegments } from 'expo-router'; // 👈 Added useRouter & useSegments
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebase/firebase'; 
 import { useAppStore } from '../store/useAppStore'; 
 
-// Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
-function LayoutController() {
-  // Extract user state, loading status, and the actions from Zustand
-  // 👇 ADDED 'loadUserData' to the destructuring
+export default function RootLayout() {
   const { user, isLoadingAuth, setFirebaseUser, loadUserData } = useAppStore();
-
-  const [initialRouteChecked, setInitialRouteChecked] = useState(false);
+  const [appReady, setAppReady] = useState(false);
+  
+  const router = useRouter();
+  const segments = useSegments(); // 👈 This tells us which folder we are in
 
   useEffect(() => {
-    // The Firebase listener
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // 1. Update the user globally in Zustand
       setFirebaseUser(firebaseUser); 
-
-      // 2. 👇 NEW: If a user is found, download their persistent data from Firestore
       if (firebaseUser) {
         await loadUserData(firebaseUser.uid);
+      } else {
+        useAppStore.setState({ watchlist: [], viewed: [], ratings: {} });
       }
-
-      setInitialRouteChecked(true);
+      setAppReady(true);
       SplashScreen.hideAsync();
     });
-    
     return () => unsubscribe();
-  }, [setFirebaseUser, loadUserData]); // Added dependencies
+  }, []);
 
-  // Show nothing while checking initial auth status
-  if (isLoadingAuth || !initialRouteChecked) {
-    return null;
-  }
-  
-  // LOGGED OUT: Render the Auth Stack 
-  if (!user) {
-    return (
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="auth" /> 
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} /> 
-        <Stack.Screen name="index" /> 
-      </Stack>
-    );
-  }
+  // 🚪 NEW: The Force-Redirect Effect
+  useEffect(() => {
+    if (!appReady) return;
 
-  // LOGGED IN: Render the Slot
-  return <Slot />;
-}
+    const inAuthGroup = segments[0] === 'auth';
 
-export default function RootLayout() {
-    return <LayoutController />;
+    if (!user && !inAuthGroup) {
+      // If no user and NOT in the login screens, force them to login
+      router.replace('/auth/login');
+    } else if (user && inAuthGroup) {
+      // If user exists but stuck in login screens, send to tabs
+      router.replace('/(tabs)');
+    }
+  }, [user, segments, appReady]);
+
+  if (!appReady || isLoadingAuth) return null;
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      {user ? (
+        <>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="movie/[id]" options={{ headerShown: true, title: 'Movie Details' }} />
+        </>
+      ) : (
+        <Stack.Screen name="auth" />
+      )}
+    </Stack>
+  );
 }
